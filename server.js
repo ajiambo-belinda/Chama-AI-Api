@@ -7,6 +7,7 @@ import groupRoutes from './routes/groupRoutes.js'
 import contributionRoutes from './routes/contributionRoutes.js'
 import loanRoutes from './routes/loanRoutes.js'
 import dividendRoutes from './routes/dividendRoutes.js'
+import userRoutes from './routes/userRoutes.js'
 
 dotenv.config()
 connectDB()
@@ -30,6 +31,9 @@ app.use('/api/loans', loanRoutes)
 
 
 app.use('/api/dividends', dividendRoutes)
+
+
+app.use('/api/users', userRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'Chama AI API is running' })
