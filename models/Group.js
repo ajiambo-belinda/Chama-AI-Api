@@ -18,6 +18,11 @@ const groupSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    officials: {
+      chairman: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      secretary: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      treasurer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    },
     cycle: {
       type: String,
       enum: ['Weekly', 'Bi-weekly', 'Monthly'],
