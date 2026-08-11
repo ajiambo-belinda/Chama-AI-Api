@@ -32,6 +32,12 @@ const contributionSchema = new mongoose.Schema(
       enum: ['self', 'treasurer'],
       default: 'self',
     },
+    checkoutRequestId: {
+      type: String,
+    },
+    mpesaReceiptNumber: {
+      type: String,
+    },
   },
   { timestamps: true }
 )
