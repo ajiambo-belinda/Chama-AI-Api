@@ -10,12 +10,12 @@ export async function createGroup(req, res) {
     }
 
     const group = await Group.create({
-  name,
-  members: memberIds,
-  treasurer: req.user._id,
-  officials: { treasurer: req.user._id },
-  cycle: cycle || 'Monthly',
-})
+      name,
+      members: memberIds,
+      treasurer: req.user._id,
+      officials: { treasurer: req.user._id },
+      cycle: cycle || 'Monthly',
+    })
 
     const populatedGroup = await group.populate('members', 'name email savings')
 
@@ -29,10 +29,58 @@ export async function createGroup(req, res) {
 export async function getMyGroups(req, res) {
   try {
     const groups = await Group.find({ members: req.user._id })
-      .populate('members', 'name email savings')
+      .populate('members', 'name email savings banned')
       .populate('treasurer', 'name email')
+      .populate('officials.chairman', 'name email')
+      .populate('officials.secretary', 'name email')
+      .populate('officials.treasurer', 'name email')
 
     res.json(groups)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+// GET /api/groups/:id — get one specific group's full details
+export async function getGroupById(req, res) {
+  try {
+    const group = await Group.findById(req.params.id)
+      .populate('members', 'name email savings banned')
+      .populate('treasurer', 'name email')
+      .populate('officials.chairman', 'name email')
+      .populate('officials.secretary', 'name email')
+      .populate('officials.treasurer', 'name email')
+
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' })
+    }
+
+    res.json(group)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+// PUT /api/groups/:id — update group settings (treasurer only)
+export async function updateGroup(req, res) {
+  try {
+    const group = await Group.findById(req.params.id)
+    if (!group) return res.status(404).json({ message: 'Group not found' })
+
+    if (group.treasurer.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the treasurer can update group settings' })
+    }
+
+    const { cycle, interestRate, loanLimitMultiplier } = req.body
+
+    if (cycle !== undefined) group.cycle = cycle
+    if (interestRate !== undefined) group.interestRate = interestRate
+    if (loanLimitMultiplier !== undefined) group.loanLimitMultiplier = loanLimitMultiplier
+
+    await group.save()
+
+    const populated = await group.populate('members', 'name email savings banned')
+    res.json(populated)
   } catch (error) {
     res.status(500).json({ message: error.message })
   }
@@ -72,45 +120,4 @@ export async function assignOfficials(req, res) {
   } catch (error) {
     res.status(500).json({ message: error.message })
   }
-}
-
-// GET /api/groups/:id — get one specific group's full details
-export async function getGroupById(req, res) {
-  try {
-    const group = await Group.findById(req.params.id)
-      .populate('members', 'name email savings banned')
-      .populate('treasurer', 'name email')
-
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' })
-    }
-
-    res.json(group)
-  } catch (error) {
-    res.status(500).json({ message: error.message })
-  }
-  // PUT /api/groups/:id — update group settings (treasurer only)
-export async function updateGroup(req, res) {
-  try {
-    const group = await Group.findById(req.params.id)
-    if (!group) return res.status(404).json({ message: 'Group not found' })
-
-    if (group.treasurer.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Only the treasurer can update group settings' })
-    }
-
-    const { cycle, interestRate, loanLimitMultiplier } = req.body
-
-    if (cycle !== undefined) group.cycle = cycle
-    if (interestRate !== undefined) group.interestRate = interestRate
-    if (loanLimitMultiplier !== undefined) group.loanLimitMultiplier = loanLimitMultiplier
-
-    await group.save()
-
-    const populated = await group.populate('members', 'name email savings banned')
-    res.json(populated)
-  } catch (error) {
-    res.status(500).json({ message: error.message })
-  }
-}
 }
