@@ -2,6 +2,7 @@ import { askGemini } from '../services/geminiService.js'
 import Group from '../models/Group.js'
 import Loan from '../models/Loan.js'
 import Contribution from '../models/Contribution.js'
+import Withdrawal from '../models/Withdrawal.js'
 
 // POST /api/ai-treasurer/ask — answer a free-form question using real group data
 export async function askAiTreasurer(req, res) {
@@ -21,7 +22,6 @@ export async function askAiTreasurer(req, res) {
       .sort({ createdAt: -1 })
       .limit(20)
 
-    // Build a compact, factual summary of the group's real state for the model to reason over
     const context = `
 Group: ${group.name}
 Cycle: ${group.cycle}
@@ -51,5 +51,47 @@ QUESTION: ${question}`
   } catch (error) {
     console.error('AI Treasurer error:', error.response?.data || error.message)
     res.status(500).json({ message: 'Failed to get AI response', details: error.response?.data })
+  }
+}
+
+// POST /api/ai-treasurer/withdrawal-recommendation — AI opinion on a pending withdrawal
+export async function getWithdrawalRecommendation(req, res) {
+  try {
+    const { withdrawalId } = req.body
+    if (!withdrawalId) return res.status(400).json({ message: 'withdrawalId is required' })
+
+    const withdrawal = await Withdrawal.findById(withdrawalId).populate('member', 'name savings banned')
+    if (!withdrawal) return res.status(404).json({ message: 'Withdrawal not found' })
+
+    const group = await Group.findById(withdrawal.group).populate('members', 'name savings')
+    const activeLoan = await Loan.findOne({
+      member: withdrawal.member._id,
+      group: withdrawal.group,
+      status: { $in: ['active', 'at-risk', 'pending'] },
+    })
+
+    const groupTotalSavings = group.members.reduce((sum, m) => sum + m.savings, 0)
+    const remainingAfterWithdrawal = groupTotalSavings - withdrawal.amount
+
+    const context = `
+Withdrawal request: KES ${withdrawal.amount.toLocaleString()} by ${withdrawal.member.name}
+Member's current savings: KES ${withdrawal.member.savings.toLocaleString()}
+Member banned status: ${withdrawal.member.banned ? 'BANNED' : 'Not banned'}
+Member has an active/pending loan: ${activeLoan ? 'YES - ' + activeLoan.status : 'No'}
+Group total savings before withdrawal: KES ${groupTotalSavings.toLocaleString()}
+Group total savings after withdrawal (if approved): KES ${remainingAfterWithdrawal.toLocaleString()}
+`.trim()
+
+    const prompt = `You are an AI assistant helping a chama (savings group) treasurer decide whether to approve a withdrawal request. You do NOT have authority to approve or reject — only the human treasurer does. Give a brief (2-3 sentence) recommendation based only on the data below, noting any red flags (active loan, banned status, or the withdrawal significantly depleting group liquidity). Be direct and factual.
+
+DATA:
+${context}`
+
+    const recommendation = await askGemini(prompt)
+
+    res.json({ recommendation })
+  } catch (error) {
+    console.error('Withdrawal recommendation error:', error.response?.data || error.message)
+    res.status(500).json({ message: 'Failed to get AI recommendation' })
   }
 }

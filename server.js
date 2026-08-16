@@ -10,6 +10,7 @@ import dividendRoutes from './routes/dividendRoutes.js'
 import userRoutes from './routes/userRoutes.js'
 import mpesaRoutes from './routes/mpesaRoutes.js'
 import aiTreasurerRoutes from './routes/aiTreasurerRoutes.js'
+import withdrawalRoutes from './routes/withdrawalRoutes.js'
 
 dotenv.config()
 connectDB()
@@ -42,6 +43,8 @@ app.use('/api/mpesa', mpesaRoutes)
 
 
 app.use('/api/ai-treasurer', aiTreasurerRoutes)
+
+app.use('/api/withdrawals', withdrawalRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'Chama AI API is running' })

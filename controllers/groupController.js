@@ -121,3 +121,54 @@ export async function assignOfficials(req, res) {
     res.status(500).json({ message: error.message })
   }
 }
+
+// POST /api/groups/:id/members — add a member by email (treasurer only)
+export async function addGroupMember(req, res) {
+  try {
+    const { email } = req.body
+    const group = await Group.findById(req.params.id)
+    if (!group) return res.status(404).json({ message: 'Group not found' })
+
+    if (group.treasurer.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the treasurer can add members' })
+    }
+
+    const newMember = await User.findOne({ email: email.toLowerCase().trim() })
+    if (!newMember) return res.status(404).json({ message: 'No registered member found with that email' })
+
+    if (group.members.map((m) => m.toString()).includes(newMember._id.toString())) {
+      return res.status(400).json({ message: 'This member is already in the group' })
+    }
+
+    group.members.push(newMember._id)
+    await group.save()
+
+    const populated = await group.populate('members', 'name email savings banned')
+    res.json(populated)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+// DELETE /api/groups/:id/members/:memberId — remove a member (treasurer only)
+export async function removeGroupMember(req, res) {
+  try {
+    const group = await Group.findById(req.params.id)
+    if (!group) return res.status(404).json({ message: 'Group not found' })
+
+    if (group.treasurer.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the treasurer can remove members' })
+    }
+    if (req.params.memberId === group.treasurer.toString()) {
+      return res.status(400).json({ message: 'The treasurer cannot remove themselves from the group' })
+    }
+
+    group.members = group.members.filter((m) => m.toString() !== req.params.memberId)
+    await group.save()
+
+    const populated = await group.populate('members', 'name email savings banned')
+    res.json(populated)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}

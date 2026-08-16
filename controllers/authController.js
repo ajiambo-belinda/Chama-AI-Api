@@ -53,3 +53,31 @@ export async function loginUser(req, res) {
     res.status(500).json({ message: error.message })
   }
 }
+
+// PUT /api/auth/change-password
+export async function changePassword(req, res) {
+  try {
+    const { currentPassword, newPassword } = req.body
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current and new password are required' })
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' })
+    }
+
+    const user = await User.findById(req.user._id)
+    const isMatch = await user.matchPassword(currentPassword)
+
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' })
+    }
+
+    user.password = newPassword // pre-save hook will hash it automatically
+    await user.save()
+
+    res.json({ message: 'Password updated successfully' })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
